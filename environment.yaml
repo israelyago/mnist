@@ -1,0 +1,14 @@
+name: base
+channels:
+  - conda-forge
+dependencies:
+  - ca-certificates
+  - certifi
+  - colorlog
+  - conda-forge::mlflow
+  - openssl
+  - python-json-logger
+  - python==3.11
+  - safetensors
+  - conda-forge::pytorch
+  - conda-forge::torchmetrics

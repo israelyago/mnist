@@ -1,0 +1,6 @@
+dataset
+artifacts
+mlruns
+mlartifacts
+**/__pycache__
+logs
