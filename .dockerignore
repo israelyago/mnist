@@ -1,0 +1,4 @@
+*
+!src
+**/__pycache__
+!docker_env_mamba.yaml

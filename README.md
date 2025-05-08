@@ -15,6 +15,18 @@ In a new terminal:
 1. Activate the environment with `mamba activate mnist`
 1. Run `python src/main.py` to debug or `python src/main.py -r` for release/full mode
 
+## Running locally with container
+
+First, run MLflow UI server with your container technology:
+
+1. `docker build -t mlflow-server:local -f mlflow.Dockerfile .`
+1. `docker run -d -p 5000:5000 mlflow-server:local`
+
+Then, run the training code with:
+
+1. `docker build -t mnist:local -f Dockerfile .`
+1. `docker run -it --rm mnist:local sh`
+
 ## Development
 
 When changing the dependencies of mamba:
