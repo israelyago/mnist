@@ -8,6 +8,11 @@ Can be downloaded at [Hugging Face](https://huggingface.co/datasets/ylecun/mnist
 
 1. Create a new conda/mamba env: `mamba env create -n mnist -f environment.yaml`
 1. Activate the environment with `mamba activate mnist`
+1. Start the MLflow tracking server with `./local_mlflow_server.sh`
+
+In a new terminal:
+
+1. Activate the environment with `mamba activate mnist`
 1. Run `python src/main.py` to debug or `python src/main.py -r` for release/full mode
 
 ## Development
