@@ -12,3 +12,4 @@ dependencies:
   - safetensors
   - conda-forge::pytorch
   - conda-forge::torchmetrics
+  - lightning

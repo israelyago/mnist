@@ -21,8 +21,9 @@ _parser.add_argument(
 _parser.add_argument(
     "-a",
     "--arch",
-    help="Which architecture to use. One of ['', '']",
+    help="Which architecture to use. One of ['lenet5', 'udlbook']",
     type=str,
+    default="udlbook",
 )
 _args = _parser.parse_args()
 

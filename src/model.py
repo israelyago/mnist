@@ -1,121 +1,194 @@
-import os
-import safetensors
-import safetensors.torch
+import lightning as L
 import torch
-from torch.nn import functional as F
 from torch import nn
-from pathlib import Path
 import logs
+from torchmetrics.classification import (
+    MulticlassF1Score,
+    MulticlassAccuracy,
+    MulticlassPrecision,
+)
 
 logger = logs.get_logger("model")
 
 
-class UDLBookChapCNN(torch.nn.Module):
+class ExponentialMovingAverage:
+    def __init__(self, alpha):
+        self.alpha = alpha
+        self.smoothed_value = None
 
-    def __init__(self):
-        super(UDLBookChapCNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=3)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=3)
-        # Dropout for convolutions
-        self.drop = nn.Dropout2d()
-        # Fully connected layer
-        self.fc1 = nn.Linear(500, 50)
-        self.fc2 = nn.Linear(50, 10)
+    def update(self, new_value):
+        if self.smoothed_value is None:
+            self.smoothed_value = new_value
+        else:
+            self.smoothed_value = (
+                self.alpha * new_value + (1 - self.alpha) * self.smoothed_value
+            )
+        return self.smoothed_value
 
-        self.softmax = torch.nn.Softmax()
+    def get_smoothed_value(self):
+        return self.smoothed_value
 
-    def forward(self, x):
+    def reset(self):
+        self.smoothed_value = None
+
+
+def get_udlbook_arch():
+    """Understanding DeepLearning (Book) inspired architecture"""
+    return nn.Sequential(
         # 1
-        x = self.conv1(x)
+        nn.Conv2d(1, 10, kernel_size=3),
         # 2
-        x = F.max_pool2d(x, 2)
+        nn.MaxPool2d(2),
         # 3
-        x = F.relu(x)
+        nn.ReLU(),
         # 4
-        x = self.conv2(x)
+        nn.Conv2d(10, 20, kernel_size=3),
         # 5
-        x = self.drop(x)
+        nn.Dropout2d(),
         # 6
-        x = F.max_pool2d(x, 2)
+        nn.MaxPool2d(2),
         # 7
-        x = F.relu(x)
+        nn.ReLU(),
         # 8
-        x = x.flatten(1)
+        nn.Flatten(),
         # 9
-        x = self.fc1(x)
+        nn.Linear(500, 50),
         # 10
-        x = F.relu(x)
+        nn.ReLU(),
         # 11
-        x = self.fc2(x)
+        nn.Linear(50, 10),
         # 12
-        x = self.softmax(x)
-        return x
+        nn.Softmax(),
+    )
 
 
-class LeNet5(torch.nn.Module):
+def get_lenet5_arch():
     """LeNet5 Inspired architecture."""
+    return nn.Sequential(
+        # 0
+        nn.ConstantPad2d((2, 2, 2, 2), value=0),
+        # 1
+        nn.Conv2d(1, 6, kernel_size=5),
+        # 2
+        nn.MaxPool2d(2),
+        # 3
+        nn.ReLU(),
+        # 4
+        nn.Conv2d(6, 16, kernel_size=5),
+        # 5
+        nn.MaxPool2d(2),
+        # 6
+        nn.ReLU(),
+        # 7
+        nn.Flatten(),
+        # 8
+        nn.Linear(400, 120),
+        # 9
+        nn.ReLU(),
+        # 10
+        nn.Linear(120, 10),
+        nn.Softmax(),
+    )
 
-    def __init__(self):
-        super(LeNet5, self).__init__()
-        self.conv1 = nn.Conv2d(1, 6, kernel_size=5)
-        self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
-        self.conv3 = nn.Conv2d(16, 120, kernel_size=5)
-        self.fc1 = nn.Linear(400, 120)
-        self.fc2 = nn.Linear(
-            120, 10
-        )  # Skipping Gaussian connections from original paper
 
-        self.softmax = torch.nn.Softmax()
+class MNISTModel(L.LightningModule):
+
+    def __init__(self, arch, params):
+        super(MNISTModel, self).__init__()
+        self.save_hyperparameters()
+        self.lr = params["learning_rate"]
+        self.model = get_lenet5_arch() if arch == "lenet5" else get_udlbook_arch()
+
+        self.criterion = nn.CrossEntropyLoss()
+
+        smoothing_factor = 0.18  # Around 10 datapoints
+        self.loss_smoother = ExponentialMovingAverage(smoothing_factor)
+        self.f1_metric = MulticlassF1Score(num_classes=10, average="macro")
+        self.accuracy_metric = MulticlassAccuracy(num_classes=10, average="macro")
+        self.precision_metric = MulticlassPrecision(num_classes=10, average="macro")
+
+        self.val_loss_smoother = ExponentialMovingAverage(smoothing_factor)
+        self.val_f1_metric = MulticlassF1Score(num_classes=10, average="macro")
+        self.val_accuracy_metric = MulticlassAccuracy(num_classes=10, average="macro")
+        self.val_precision_metric = MulticlassPrecision(num_classes=10, average="macro")
+
+        self.test_loss_smoother = ExponentialMovingAverage(smoothing_factor)
+        self.test_f1_metric = MulticlassF1Score(num_classes=10, average="macro")
+        self.test_accuracy_metric = MulticlassAccuracy(num_classes=10, average="macro")
+        self.test_precision_metric = MulticlassPrecision(
+            num_classes=10, average="macro"
+        )
 
     def forward(self, x):
-        # 0
-        padding_size = 2
-        x = F.pad(
-            x,
-            (padding_size, padding_size, padding_size, padding_size),
-            mode="constant",
-            value=0,
-        )
-        # 1
-        x = self.conv1(x)
-        # 2
-        x = F.max_pool2d(x, kernel_size=2, stride=2)
-        # 3
-        x = F.relu(x)
-        # 4
-        x = self.conv2(x)
-        # 5
-        x = F.max_pool2d(x, kernel_size=2, stride=2)
-        # 6
-        x = F.relu(x)
-        # 7
-        x = x.flatten(1)
-        # 8
-        x = self.fc1(x)
-        # 9
-        x = F.relu(x)
-        # 10
-        x = self.fc2(x)
-        # 11
-        x = self.softmax(x)
-        return x
+        return self.model(x)
 
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
+        return optimizer
 
-def load_model(file_name, arch, device="cpu"):
+    def training_step(self, train_batch, batch_idx, *args, **kwargs):
+        x, y = train_batch
 
-    model = UDLBookChapCNN()
-    if arch == "lenet5":
-        model = LeNet5()
-    model = model.to(device)
+        x = x.reshape((len(x), 1, 28, 28))
 
-    if file_name is not None:
-        file = Path(file_name)
-        if file.is_file():
-            logger.info(f"✅ Model Checkpoint found in '{file}', loading tensors.")
-            safetensors.torch.load_model(model, file_name, device=device)
-    return model
+        logits = self.model(x)
 
+        loss = self.criterion(logits, y)
 
-def save_model(model, file_path_with_name: Path):
-    os.makedirs(file_path_with_name.parent, exist_ok=True)
-    safetensors.torch.save_model(model, file_path_with_name)
+        self.loss_smoother.update(loss.item())
+        self.f1_metric.update(logits, y)
+        self.accuracy_metric.update(logits, y)
+        self.precision_metric.update(logits, y)
+
+        self.log("train_loss", loss)
+        self.log("train_loss_smoothed", self.loss_smoother.get_smoothed_value())
+        self.log("train_f1", self.f1_metric.compute().cpu().item())
+        self.log("train_acc", self.accuracy_metric.compute().cpu().item())
+        self.log("train_prec", self.precision_metric.compute().cpu().item())
+
+        return loss
+
+    def on_validation_start(self):
+        self.val_loss_smoother.reset()
+        self.val_f1_metric.reset()
+        self.val_accuracy_metric.reset()
+        self.val_precision_metric.reset()
+
+    def validation_step(self, val_batch, *args, **kwargs):
+        x, y = val_batch
+        x = x.reshape((len(x), 1, 28, 28))
+        logits = self.model(x)
+        loss = self.criterion(logits, y)
+
+        self.val_loss_smoother.update(loss.item())
+        self.val_f1_metric.update(logits, y)
+        self.val_accuracy_metric.update(logits, y)
+        self.val_precision_metric.update(logits, y)
+
+        self.log("val_loss", loss)
+        self.log("val_loss_smoothed", self.val_loss_smoother.get_smoothed_value())
+        self.log("val_f1", self.val_f1_metric.compute().cpu().item())
+        self.log("val_acc", self.val_accuracy_metric.compute().cpu().item())
+        self.log("val_prec", self.val_precision_metric.compute().cpu().item())
+        return loss
+
+    def test_step(self, test_batch, *args, **kwargs):
+        x, y = test_batch
+        x = x.reshape((len(x), 1, 28, 28))
+        logits = self.model(x)
+        loss = self.criterion(logits, y)
+
+        self.test_loss_smoother.update(loss.item())
+        self.test_f1_metric.update(logits, y)
+        self.test_accuracy_metric.update(logits, y)
+        self.test_precision_metric.update(logits, y)
+
+        self.log("test_loss", loss)
+        self.log("test_loss_smoothed", self.test_loss_smoother.get_smoothed_value())
+        self.log("test_f1", self.test_f1_metric.compute().cpu().item())
+        self.log("test_acc", self.test_accuracy_metric.compute().cpu().item())
+        self.log("test_prec", self.test_precision_metric.compute().cpu().item())
+        return loss
+
+    def backward(self, loss, *args, **kwargs):
+        loss.backward()
