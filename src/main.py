@@ -5,7 +5,7 @@ import torch
 import arguments
 from torch import nn
 from dataset import CustomDataset
-from model import MNISTModel, load_model, save_model
+from model import load_model, save_model
 from mlflow.models import infer_signature
 from PIL import Image
 import logs
@@ -31,6 +31,11 @@ MLFLOW_URI = "http://127.0.0.1:5000"
 EXPERIMENT_NAME = "MNIST"
 LOAD_MODEL_FROM_PATH = args.model
 SAVE_MODEL_DIR = "artifacts"
+
+VALID_ARCH = ["lenet5", "udlbook"]
+if args.arch not in VALID_ARCH:
+    logger.error(f"Argument 'arch' must be one of {VALID_ARCH}, got '{args.arch}'")
+    sys.exit(1)
 
 # Hyperparameters
 params = {
@@ -87,7 +92,7 @@ if LOAD_MODEL_FROM_PATH is not None:
 
 # Load model
 logger.info("⏳ Initializing model...")
-model = load_model(file_name=LOAD_MODEL_FROM_PATH, device=device)
+model = load_model(file_name=LOAD_MODEL_FROM_PATH, arch=args.arch, device=device)
 
 optimizer = torch.optim.SGD(model.parameters(), lr=params["learning_rate"])
 criterion = nn.CrossEntropyLoss()

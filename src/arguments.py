@@ -18,6 +18,12 @@ _parser.add_argument(
     help="Path to load the model from",
     type=pathlib.Path,
 )
+_parser.add_argument(
+    "-a",
+    "--arch",
+    help="Which architecture to use. One of ['', '']",
+    type=str,
+)
 _args = _parser.parse_args()
 
 

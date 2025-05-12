@@ -1,5 +1,4 @@
 import os
-import sys
 import safetensors
 import safetensors.torch
 import torch
@@ -11,10 +10,10 @@ import logs
 logger = logs.get_logger("model")
 
 
-class MNISTModel(torch.nn.Module):
+class UDLBookChapCNN(torch.nn.Module):
 
     def __init__(self):
-        super(MNISTModel, self).__init__()
+        super(UDLBookChapCNN, self).__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=3)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=3)
         # Dropout for convolutions
@@ -53,8 +52,62 @@ class MNISTModel(torch.nn.Module):
         return x
 
 
-def load_model(file_name, device="cpu"):
-    model = MNISTModel().to(device)
+class LeNet5(torch.nn.Module):
+    """LeNet5 Inspired architecture."""
+
+    def __init__(self):
+        super(LeNet5, self).__init__()
+        self.conv1 = nn.Conv2d(1, 6, kernel_size=5)
+        self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
+        self.conv3 = nn.Conv2d(16, 120, kernel_size=5)
+        self.fc1 = nn.Linear(400, 120)
+        self.fc2 = nn.Linear(
+            120, 10
+        )  # Skipping Gaussian connections from original paper
+
+        self.softmax = torch.nn.Softmax()
+
+    def forward(self, x):
+        # 0
+        padding_size = 2
+        x = F.pad(
+            x,
+            (padding_size, padding_size, padding_size, padding_size),
+            mode="constant",
+            value=0,
+        )
+        # 1
+        x = self.conv1(x)
+        # 2
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        # 3
+        x = F.relu(x)
+        # 4
+        x = self.conv2(x)
+        # 5
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        # 6
+        x = F.relu(x)
+        # 7
+        x = x.flatten(1)
+        # 8
+        x = self.fc1(x)
+        # 9
+        x = F.relu(x)
+        # 10
+        x = self.fc2(x)
+        # 11
+        x = self.softmax(x)
+        return x
+
+
+def load_model(file_name, arch, device="cpu"):
+
+    model = UDLBookChapCNN()
+    if arch == "lenet5":
+        model = LeNet5()
+    model = model.to(device)
+
     if file_name is not None:
         file = Path(file_name)
         if file.is_file():
