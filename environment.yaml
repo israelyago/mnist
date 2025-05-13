@@ -13,3 +13,4 @@ dependencies:
   - conda-forge::pytorch
   - conda-forge::torchmetrics
   - lightning
+  - conda-forge::ray-tune

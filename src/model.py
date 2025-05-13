@@ -1,14 +1,11 @@
 import lightning as L
 import torch
 from torch import nn
-import logs
 from torchmetrics.classification import (
     MulticlassF1Score,
     MulticlassAccuracy,
     MulticlassPrecision,
 )
-
-logger = logs.get_logger("model")
 
 
 class ExponentialMovingAverage:
@@ -96,7 +93,7 @@ class MNISTModel(L.LightningModule):
     def __init__(self, arch, params):
         super(MNISTModel, self).__init__()
         self.save_hyperparameters()
-        self.lr = params["learning_rate"]
+        self.lr = params["lr"]
         self.model = get_lenet5_arch() if arch == "lenet5" else get_udlbook_arch()
 
         self.criterion = nn.CrossEntropyLoss()

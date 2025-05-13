@@ -2,7 +2,12 @@
 
 ## Data download
 
-Can be downloaded at [Hugging Face](https://huggingface.co/datasets/ylecun/mnist)
+Can be downloaded at Hugging Face [ylecun/mnist](https://huggingface.co/datasets/ylecun/mnist).
+
+After downloading:
+
+1. Put the train data inside `./dataset/train.parquet`
+1. Put the test data inside `./dataset/test.parquet`
 
 ## Running locally with conda/mamba
 
